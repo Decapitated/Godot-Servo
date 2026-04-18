@@ -8,3 +8,4 @@ crate-type = ["cdylib"]  # Compile this crate to a dynamic C library.
 
 [dependencies]
 godot = { version = "0.5.1", features = ["api-4-6"] }
+servo = "0.1.0"
