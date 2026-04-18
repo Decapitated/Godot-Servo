@@ -7,5 +7,8 @@ edition = "2024"
 crate-type = ["cdylib"]  # Compile this crate to a dynamic C library.
 
 [dependencies]
+dpi = "0.1.2"
 godot = { version = "0.5.1", features = ["api-4-6"] }
 servo = "0.1.0"
+surfman = "0.12.0"
+url = "2.5.8"

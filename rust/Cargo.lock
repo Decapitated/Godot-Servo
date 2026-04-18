@@ -2072,6 +2072,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "glow"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "29038e1c483364cc6bb3cf78feee1816002e127c331a1eec55a4d202b9e1adb5"
+dependencies = [
+ "js-sys",
+ "slotmap",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
 name = "glslopt"
 version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2168,8 +2180,11 @@ dependencies = [
 name = "godot-servo"
 version = "0.1.0"
 dependencies = [
+ "dpi",
  "godot",
  "servo",
+ "surfman 0.12.0",
+ "url",
 ]
 
 [[package]]
@@ -5560,7 +5575,7 @@ dependencies = [
  "servo-webxr",
  "stylo",
  "stylo_traits",
- "surfman",
+ "surfman 0.11.0",
  "tokio",
  "url",
  "webrender",
@@ -5665,7 +5680,7 @@ checksum = "5f18e3688716e4accaa2614a54bc17e71624b965a4132e66b6191218e77d75e7"
 dependencies = [
  "crossbeam-channel",
  "euclid",
- "glow",
+ "glow 0.16.0",
  "kurbo 0.12.0",
  "malloc_size_of_derive",
  "serde",
@@ -6435,7 +6450,7 @@ dependencies = [
  "servo-webgl",
  "smallvec",
  "stylo_traits",
- "surfman",
+ "surfman 0.11.0",
  "webrender",
  "webrender_api",
  "wr_malloc_size_of",
@@ -6452,7 +6467,7 @@ dependencies = [
  "dpi",
  "euclid",
  "gleam",
- "glow",
+ "glow 0.16.0",
  "image",
  "ipc-channel",
  "log",
@@ -6473,7 +6488,7 @@ dependencies = [
  "strum",
  "stylo",
  "stylo_traits",
- "surfman",
+ "surfman 0.11.0",
  "webrender_api",
 ]
 
@@ -6567,7 +6582,7 @@ dependencies = [
  "encoding_rs",
  "euclid",
  "flate2",
- "glow",
+ "glow 0.16.0",
  "headers 0.4.1",
  "hkdf",
  "html5ever",
@@ -6829,7 +6844,7 @@ dependencies = [
  "byteorder",
  "crossbeam-channel",
  "euclid",
- "glow",
+ "glow 0.16.0",
  "half",
  "itertools 0.14.0",
  "log",
@@ -6839,7 +6854,7 @@ dependencies = [
  "servo-canvas-traits",
  "servo-paint-api",
  "servo-pixels",
- "surfman",
+ "surfman 0.11.0",
  "webrender_api",
 ]
 
@@ -6888,14 +6903,14 @@ checksum = "efdbc5c1be1fdf250978506d303132719a502ec9b81462c7c42f76688187feb5"
 dependencies = [
  "crossbeam-channel",
  "euclid",
- "glow",
+ "glow 0.16.0",
  "log",
  "openxr",
  "raw-window-handle",
  "servo-base",
  "servo-profile-traits",
  "servo-webxr-api",
- "surfman",
+ "surfman 0.11.0",
  "winapi",
  "wio",
 ]
@@ -7351,7 +7366,7 @@ dependencies = [
  "euclid",
  "fnv",
  "gl_generator",
- "glow",
+ "glow 0.16.0",
  "libc",
  "log",
  "objc2",
@@ -7367,6 +7382,34 @@ dependencies = [
  "winapi",
  "wio",
  "x11-dl",
+]
+
+[[package]]
+name = "surfman"
+version = "0.12.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8fd46f11e3e56616d97db5ab0ba5ed53b215851afeef341657f0f6087d6c946e"
+dependencies = [
+ "bitflags 2.11.1",
+ "cfg_aliases",
+ "cgl",
+ "euclid",
+ "gl_generator",
+ "glow 0.17.0",
+ "libc",
+ "log",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-core-video",
+ "objc2-foundation",
+ "objc2-io-surface",
+ "objc2-metal",
+ "objc2-quartz-core",
+ "raw-window-handle",
+ "wayland-sys",
+ "winapi",
+ "wio",
 ]
 
 [[package]]
@@ -8512,7 +8555,7 @@ dependencies = [
  "cfg-if",
  "cfg_aliases",
  "core-graphics-types 0.2.0",
- "glow",
+ "glow 0.16.0",
  "glutin_wgl_sys",
  "gpu-alloc",
  "gpu-allocator",
