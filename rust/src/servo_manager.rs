@@ -1,17 +1,14 @@
 use std::{sync::{Arc, atomic::{AtomicBool, Ordering}}};
 
-use dpi::PhysicalSize;
 use godot::prelude::*;
 use servo::{EventLoopWaker, Servo, ServoBuilder};
 
-use crate::headless_window::HeadlessWindow;
 
 #[derive(GodotClass)]
 #[class(base=Object)]
 pub struct ServoManager {
     base: Base<Object>,
     servo: Servo,
-    window: HeadlessWindow,
     needs_wake: Arc<AtomicBool>,
 }
 
@@ -22,11 +19,9 @@ impl IObject for ServoManager {
         let servo = ServoBuilder::default()
             .event_loop_waker(Box::new(Proxy { needs_wake: Arc::clone(&needs_wake) }))
             .build();
-        let window = HeadlessWindow::new(PhysicalSize::new(800, 600));
         Self {
             base,
             servo,
-            window,
             needs_wake,
         }
     }
@@ -35,10 +30,6 @@ impl IObject for ServoManager {
 impl ServoManager {
     pub fn get_servo(&self) -> &Servo {
         &self.servo
-    }
-
-    pub fn get_window(&self) -> &HeadlessWindow {
-        &self.window
     }
 
     pub fn wake_if_needed(&mut self) {
