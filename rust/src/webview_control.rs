@@ -18,7 +18,7 @@ enum ProxyEvent {
 struct WebViewControl {
     base: Base<Control>,
     rendering_context: Rc<dyn RenderingContext>,
-    webview: WebView,
+    webview: Rc<WebView>,
     event_queue: Rc<RefCell<Vec<ProxyEvent>>>,
     image_texture: Option<Gd<ImageTexture>>,
 }
@@ -50,7 +50,7 @@ impl IControl for WebViewControl {
         Self {
             base,
             rendering_context,
-            webview,
+            webview: Rc::new(webview),
             event_queue,
             image_texture: None
         }
@@ -72,7 +72,9 @@ impl IControl for WebViewControl {
             .get_singleton("ServoManager")
             .expect("Failed to get singleton").cast::<ServoManager>();
         
-        {
+        if self.webview.as_ref().clone().animating() {
+            servo_manager.bind_mut().wake();
+        } else {
             servo_manager.bind_mut().wake_if_needed();
         }
             
