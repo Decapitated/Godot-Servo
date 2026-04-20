@@ -44,7 +44,7 @@ impl IControl for WebViewControl {
             .delegate(Rc::new(Proxy {
                 event_queue: event_queue.clone(),
             }))
-            .url(Url::parse("https://google.com").expect("Failed to parse url"))
+            .url(Url::parse("https://store.steampowered.com/").expect("Failed to parse url"))
             .build();
 
         Self {
