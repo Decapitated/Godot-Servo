@@ -1,11 +1,10 @@
-use std::{cell::Cell, rc::Rc};
+use std::rc::Rc;
 
 use dpi::PhysicalSize;
-use servo::{AnimationState, RenderingContext, SoftwareRenderingContext};
+use servo::{RenderingContext, SoftwareRenderingContext};
 
 pub(crate) struct HeadlessWindow {
-    animation_state: Cell<AnimationState>,
-    rendering_context: Rc<dyn RenderingContext>,
+    rendering_context: Rc<dyn RenderingContext>
 }
 
 impl HeadlessWindow {
@@ -15,8 +14,7 @@ impl HeadlessWindow {
         ).expect("Failed to create rendering context");
 
         Self {
-            animation_state: Cell::new(AnimationState::NoAnimationsPresent),
-            rendering_context: Rc::new(rendering_context),
+            rendering_context: Rc::new(rendering_context)
         }
     }
 
