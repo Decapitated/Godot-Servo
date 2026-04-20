@@ -13,3 +13,12 @@ godot = { version = "0.5.1", features = ["api-4-6"] }
 servo = "0.1.0"
 surfman = "0.12.0"
 url = "2.5.8"
+
+[profile.dev]
+opt-level = 0
+debug = 1          # "1" = line tables only, faster than full "2"
+incremental = true
+
+# Don't optimize your deps on every tiny rebuild
+[profile.dev.package."*"]
+opt-level = 2      # compile deps fast once, keep them cached

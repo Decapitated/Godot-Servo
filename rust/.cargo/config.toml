@@ -1,2 +1,5 @@
 [build]
 target-dir = "../demo/addons/gdservo/target"
+
+[target.x86_64-pc-windows-msvc]
+linker = "rust-lld"
