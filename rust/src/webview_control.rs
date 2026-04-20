@@ -183,7 +183,7 @@ impl WebViewControl {
                 window_size.width as i32, window_size.height as i32,
                 false, Format::RGBA8, &data);
             if let Some(mut image_texture) = self.image_texture.clone() {
-                image_texture.set_image(image.as_ref());
+                image_texture.update(image.as_ref());
             } else {
                 let image_texture = ImageTexture::create_from_image(image.as_ref());
                 self.image_texture = image_texture;
