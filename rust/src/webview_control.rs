@@ -21,6 +21,8 @@ struct WebViewControl {
     webview: Rc<WebView>,
     event_queue: Rc<RefCell<Vec<ProxyEvent>>>,
     image_texture: Option<Gd<ImageTexture>>,
+    image: Option<Gd<Image>>,
+    buffer: PackedByteArray
 }
 
 #[godot_api]
@@ -52,7 +54,9 @@ impl IControl for WebViewControl {
             rendering_context,
             webview: Rc::new(webview),
             event_queue,
-            image_texture: None
+            image_texture: None,
+            image: None,
+            buffer: PackedByteArray::new()
         }
     }
 
@@ -163,6 +167,7 @@ impl IControl for WebViewControl {
 #[godot_api]
 impl WebViewControl {
     fn on_resize(&mut self) {
+        self.image = None;
         self.image_texture = None;
         let control_size = self.base().get_size();
         self.webview.resize(PhysicalSize {
@@ -174,19 +179,35 @@ impl WebViewControl {
 
     fn update_image(&mut self) {
         self.webview.paint();
+
         let window_size = self.rendering_context.size();
-        let image_option = self.rendering_context
-            .read_to_image(Box2D::new(Point2D::origin(), Point2D::new(window_size.width as i32, window_size.height as i32)));
+        let width = window_size.width as i32;
+        let height = window_size.height as i32;
+
+        let image_option = self.rendering_context.read_to_image(
+            Box2D::new(Point2D::origin(), Point2D::new(width, height)));
         if let Some(image_buffer) = image_option {
-            let data = PackedByteArray::from(image_buffer.as_raw().as_slice());
-            let image = Image::create_from_data(
-                window_size.width as i32, window_size.height as i32,
-                false, Format::RGBA8, &data);
-            if let Some(mut image_texture) = self.image_texture.clone() {
-                image_texture.update(image.as_ref());
-            } else {
+            let raw = image_buffer.as_raw();
+            if self.buffer.len() != raw.len() {
+                self.buffer.resize(raw.len());
+            }
+            self.buffer.as_mut_slice().copy_from_slice(raw.as_slice());
+            
+            if self.image_texture.is_none() {
+                let image = Image::create_from_data(
+                    width, height,
+                    false, Format::RGBA8, &self.buffer);
                 let image_texture = ImageTexture::create_from_image(image.as_ref());
+                self.image = image;
                 self.image_texture = image_texture;
+            } else {
+                if let Some(mut image) = self.image.clone() {
+                    image.set_data(width, height, false, Format::RGBA8, &self.buffer);
+                }
+                if let (Some(mut image_texture), Some(image)) =
+                       (self.image_texture.clone(), self.image.clone()) {
+                    image_texture.update(&image);
+                }
             }
             self.base_mut().queue_redraw();
         }
