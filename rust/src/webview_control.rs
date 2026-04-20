@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc};
 
 use dpi::PhysicalSize;
 use euclid::{Box2D, Point2D};
-use godot::{classes::{Control, Engine, IControl, Image, ImageTexture, image::Format}, prelude::*};
-use servo::{RenderingContext, SoftwareRenderingContext, WebView, WebViewBuilder, WebViewDelegate};
+use godot::{classes::{Control, Engine, IControl, Image, ImageTexture, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, image::Format}, global, prelude::*};
+use servo::{MouseButtonEvent, MouseMoveEvent, RenderingContext, SoftwareRenderingContext, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint};
 use url::Url;
 
 use crate::servo_manager::ServoManager;
@@ -65,6 +65,44 @@ impl IControl for WebViewControl {
         if let Some(image_texture) = self.image_texture.clone() {
             self.base_mut().draw_texture(&image_texture, Vector2::ZERO);
         }
+    }
+
+    fn gui_input(&mut self, event: Gd<InputEvent>) {
+        let event = self.base().make_input_local(&event);
+        let mut webview_event: Option<servo::InputEvent> = None;
+        if let Ok(mouse_event) = event.clone().try_cast::<InputEventMouse>() {
+            let position = mouse_event.get_position();
+            if let Ok(button_event) = mouse_event.clone().try_cast::<InputEventMouseButton>() {
+                webview_event = Some(servo::InputEvent::MouseButton(
+                    MouseButtonEvent {
+                        action: match button_event.is_pressed() {
+                            true => servo::MouseButtonAction::Down,
+                            false => servo::MouseButtonAction::Up
+                        },
+                        button: match button_event.get_button_index() {
+                            global::MouseButton::LEFT => servo::MouseButton::Left,
+                            global::MouseButton::MIDDLE => servo::MouseButton::Middle,
+                            global::MouseButton::RIGHT => servo::MouseButton::Right,
+                            global::MouseButton::XBUTTON1 => servo::MouseButton::Back,
+                            global::MouseButton::XBUTTON2 => servo::MouseButton::Forward,
+                            _ => servo::MouseButton::Other(0 as u16)
+                        },
+                        point: WebViewPoint::Device(
+                            Point2D::new(position.x, position.y))
+                    }
+                ));
+            } else if let Ok(_) = mouse_event.try_cast::<InputEventMouseMotion>() {
+                webview_event = Some(servo::InputEvent::MouseMove(MouseMoveEvent {
+                    point:WebViewPoint::Device(Point2D::new(position.x,position.y)),
+                    is_compatibility_event_for_touch: false
+                }));
+            }
+        }
+
+        if let Some(webview_event) = webview_event {
+            self.webview.notify_input_event(webview_event);
+        }
+
     }
 
     fn process(&mut self, _delta: f64) {
