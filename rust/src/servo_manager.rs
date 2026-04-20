@@ -32,9 +32,13 @@ impl ServoManager {
         &self.servo
     }
 
+    pub fn wake(&self) {
+        self.servo.spin_event_loop();
+    }
+
     pub fn wake_if_needed(&mut self) {
         if self.needs_wake.swap(false, Ordering::Relaxed) {
-            self.servo.spin_event_loop();
+            self.wake();
         }
     }
 }
