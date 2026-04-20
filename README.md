@@ -4,6 +4,12 @@
 
 ## Currently Useful
 
+#### Mouse Input
+
+* [Notify Input Event](https://docs.rs/servo/0.1.0/servo/struct.WebView.html#method.notify_input_event)
+
+#### GPU Rendering
+
 * [RenderingDevice.get_driver_resource()](https://docs.godotengine.org/en/latest/classes/class_renderingdevice.html#class-renderingdevice-method-get-driver-resource)
 * [RenderingDevice::DRIVER_RESOURCE_TEXTURE](https://docs.godotengine.org/en/latest/classes/class_renderingdevice.html#class-renderingdevice-constant-driver-resource-texture)
 
