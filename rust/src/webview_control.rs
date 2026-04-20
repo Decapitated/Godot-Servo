@@ -153,25 +153,7 @@ impl IControl for WebViewControl {
 
                 },
                 ProxyEvent::NewFrameReady => {
-                    self.webview.paint();
-                    let window_size = self.rendering_context.size();
-                    let image_option = self.rendering_context
-                        .read_to_image(Box2D::new(Point2D::origin(), Point2D::new(window_size.width as i32, window_size.height as i32)));
-                    if let Some(image_buffer) = image_option {
-                        let data = PackedByteArray::from(image_buffer.as_raw().as_slice());
-                        let image = Image::create_from_data(
-                            window_size.width as i32, window_size.height as i32,
-                            false, Format::RGBA8, &data);
-                        if let Some(mut image_texture) = self.image_texture.clone() {
-                            image_texture.set_image(image.as_ref());
-                        } else {
-                            let image_texture = ImageTexture::create_from_image(image.as_ref());
-                            self.image_texture = image_texture;
-                        }
-                        if image.is_some() {
-                            self.base_mut().queue_redraw();
-                        }
-                    }
+                    self.update_image();
                 }
             }
         }
@@ -181,11 +163,33 @@ impl IControl for WebViewControl {
 #[godot_api]
 impl WebViewControl {
     fn on_resize(&mut self) {
+        self.image_texture = None;
         let control_size = self.base().get_size();
         self.webview.resize(PhysicalSize {
             width: control_size.x as u32,
             height: control_size.y as u32
         });
+        self.update_image();
+    }
+
+    fn update_image(&mut self) {
+        self.webview.paint();
+        let window_size = self.rendering_context.size();
+        let image_option = self.rendering_context
+            .read_to_image(Box2D::new(Point2D::origin(), Point2D::new(window_size.width as i32, window_size.height as i32)));
+        if let Some(image_buffer) = image_option {
+            let data = PackedByteArray::from(image_buffer.as_raw().as_slice());
+            let image = Image::create_from_data(
+                window_size.width as i32, window_size.height as i32,
+                false, Format::RGBA8, &data);
+            if let Some(mut image_texture) = self.image_texture.clone() {
+                image_texture.set_image(image.as_ref());
+            } else {
+                let image_texture = ImageTexture::create_from_image(image.as_ref());
+                self.image_texture = image_texture;
+            }
+            self.base_mut().queue_redraw();
+        }
     }
 }
 
