@@ -11,7 +11,7 @@ struct GodotServo;
 #[gdextension]
 unsafe impl ExtensionLibrary for GodotServo {
     fn on_stage_init(stage: InitStage) {
-        if stage == InitStage::MainLoop {
+        if stage == InitStage::Scene {
             godot_print!("Hello, world!");
 
             let manager = ServoManager::new_alloc();
@@ -21,7 +21,7 @@ unsafe impl ExtensionLibrary for GodotServo {
     }
 
     fn on_stage_deinit(stage: InitStage) {
-        if stage == InitStage::MainLoop {
+        if stage == InitStage::Scene {
             godot_print!("Goodbye, world!");
 
             let mut engine = Engine::singleton();

@@ -2181,6 +2181,7 @@ name = "godot-servo"
 version = "0.1.0"
 dependencies = [
  "dpi",
+ "euclid",
  "godot",
  "servo",
  "surfman 0.12.0",
