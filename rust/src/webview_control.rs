@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use godot::{classes::{Control, Engine, IControl}, prelude::*};
 use servo::{WebView, WebViewBuilder, WebViewDelegate};
@@ -6,22 +6,21 @@ use url::Url;
 
 use crate::servo_manager::ServoManager;
 
+enum ProxyEvent {
+    UrlChanged(Url),
+    NewFrameReady,
+}
+
 #[derive(GodotClass)]
 #[class(base=Control, init, tool, rename=WebView)]
 struct WebViewControl {
     base: Base<Control>,
-    webview: Option<WebView>
+    webview: Option<WebView>,
+    event_queue: Rc<RefCell<Vec<ProxyEvent>>>,
 }
 
 #[godot_api]
 impl IControl for WebViewControl {
-    // fn init(base: Base<Control>) -> Self {
-    //     Self {
-    //         base,
-    //         webview: None
-    //     }      
-    // }
-
     fn ready(&mut self) {
         let servo_manager = Engine::singleton()
             .get_singleton("ServoManager").expect("Failed to get singleton")
@@ -32,28 +31,48 @@ impl IControl for WebViewControl {
                     servo_manager.bind().get_window().get_rendering_context()
                 )
                 .delegate(Rc::new(Proxy {
-                    control: self.to_gd()
+                    event_queue: self.event_queue.clone(),
                 }))
                 .url(Url::parse("https://google.com").expect("Failed to parse url"))
                 .build();
         self.webview = Some(webview);
         godot_print!("Ready");
     }
-}
 
-impl WebViewControl {
-    pub fn update(&mut self) {
-        godot_print!("Updating");
+    fn process(&mut self, _delta: f64) {
+        Engine::singleton()
+            .get_singleton("ServoManager")
+            .expect("Failed to get singleton").cast::<ServoManager>()
+            .bind_mut()
+            .wake_if_needed();
+
+        let events: Vec<ProxyEvent> = self.event_queue.borrow_mut().drain(..).collect();
+        for event in events {
+            match event {
+                ProxyEvent::UrlChanged(url) => {
+                    godot_print!("WebViewControl: URL changed to {url}");
+
+                },
+                ProxyEvent::NewFrameReady => {
+                    godot_print!("WebViewControl: New frame ready");
+                }
+            }
+        }
     }
 }
 
 struct Proxy {
-    control: Gd<WebViewControl>
+    event_queue: Rc<RefCell<Vec<ProxyEvent>>>
 }
 
 impl WebViewDelegate for Proxy {
+    fn notify_url_changed(&self, _webview: WebView, url: Url) {
+        godot_print!("Proxy: URL changed");
+        self.event_queue.borrow_mut().push(ProxyEvent::UrlChanged(url));
+    }
+
     fn notify_new_frame_ready(&self, _webview: WebView) {
-        godot_print!("Frame ready");
-        self.control.clone().bind_mut().update();
+        godot_print!("Proxy: New frame ready");
+        self.event_queue.borrow_mut().push(ProxyEvent::NewFrameReady);
     }
 }
