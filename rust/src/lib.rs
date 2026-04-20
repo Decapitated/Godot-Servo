@@ -1,7 +1,6 @@
 use godot::{classes::Engine, prelude::*};
 
 mod servo_manager;
-mod headless_window;
 mod webview_control;
 
 use servo_manager::ServoManager;

@@ -1,8 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
+use dpi::PhysicalSize;
 use euclid::{Box2D, Point2D};
 use godot::{classes::{Control, Engine, IControl, Image, ImageTexture, image::Format}, prelude::*};
-use servo::{WebView, WebViewBuilder, WebViewDelegate};
+use servo::{RenderingContext, SoftwareRenderingContext, WebView, WebViewBuilder, WebViewDelegate};
 use url::Url;
 
 use crate::servo_manager::ServoManager;
@@ -16,6 +17,7 @@ enum ProxyEvent {
 #[class(base=Control, tool, rename=WebView)]
 struct WebViewControl {
     base: Base<Control>,
+    rendering_context: Rc<dyn RenderingContext>,
     webview: WebView,
     event_queue: Rc<RefCell<Vec<ProxyEvent>>>,
     image_texture: Option<Gd<ImageTexture>>,
@@ -24,27 +26,39 @@ struct WebViewControl {
 #[godot_api]
 impl IControl for WebViewControl {
     fn init(base: Base<Control>) -> Self {
-        let servo_manager = Engine::singleton()
-            .get_singleton("ServoManager").expect("Failed to get singleton")
+        let servo_manager = 
+            Engine::singleton()
+            .get_singleton("ServoManager")
+            .expect("Failed to get singleton")
             .cast::<ServoManager>();
+        let rendering_context = 
+            Rc::new(
+                SoftwareRenderingContext::new(PhysicalSize::new(800, 600))
+                .expect("Failed to create rendering context"));
         let event_queue = Rc::new(RefCell::new(Vec::new()));
         let webview =
             WebViewBuilder::new(
-                    servo_manager.bind().get_servo(),
-                    servo_manager.bind().get_window().get_rendering_context()
-                )
-                .delegate(Rc::new(Proxy {
-                    event_queue: event_queue.clone(),
-                }))
-                .url(Url::parse("https://google.com").expect("Failed to parse url"))
-                .build();
+                servo_manager.bind().get_servo(),
+                rendering_context.clone()
+            )
+            .delegate(Rc::new(Proxy {
+                event_queue: event_queue.clone(),
+            }))
+            .url(Url::parse("https://google.com").expect("Failed to parse url"))
+            .build();
 
         Self {
             base,
+            rendering_context,
             webview,
             event_queue,
             image_texture: None
         }
+    }
+
+    fn ready(&mut self) {
+        self.signals().resized().connect_self(Self::on_resize);
+        self.on_resize();
     }
 
     fn draw(&mut self) {
@@ -72,10 +86,8 @@ impl IControl for WebViewControl {
                 },
                 ProxyEvent::NewFrameReady => {
                     self.webview.paint();
-                    let servo_manager = servo_manager.bind();
-                    let window = servo_manager.get_window();
-                    let window_size = window.get_rendering_context().size();
-                    let image_option = window.get_rendering_context()
+                    let window_size = self.rendering_context.size();
+                    let image_option = self.rendering_context
                         .read_to_image(Box2D::new(Point2D::origin(), Point2D::new(window_size.width as i32, window_size.height as i32)));
                     if let Some(image_buffer) = image_option {
                         let data = PackedByteArray::from(image_buffer.as_raw().as_slice());
@@ -95,6 +107,17 @@ impl IControl for WebViewControl {
                 }
             }
         }
+    }
+}
+
+#[godot_api]
+impl WebViewControl {
+    fn on_resize(&mut self) {
+        let control_size = self.base().get_size();
+        self.webview.resize(PhysicalSize {
+            width: control_size.x as u32,
+            height: control_size.y as u32
+        });
     }
 }
 
