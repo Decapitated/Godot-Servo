@@ -1,5 +1,6 @@
 use godot::{classes::Engine, prelude::*};
 
+mod godot_window_handle;
 mod servo_manager;
 mod webview_control;
 

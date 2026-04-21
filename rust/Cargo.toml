@@ -10,6 +10,7 @@ crate-type = ["cdylib"]  # Compile this crate to a dynamic C library.
 dpi = "0.1.2"
 euclid = "0.22.14"
 godot = { version = "0.5.1", features = ["api-4-6"] }
+raw-window-handle = "0.6.2"
 servo = "0.1.0"
 surfman = "0.12.0"
 url = "2.5.8"

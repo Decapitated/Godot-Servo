@@ -3,10 +3,11 @@ use std::{cell::RefCell, rc::Rc};
 use dpi::PhysicalSize;
 use euclid::{Box2D, Point2D};
 use godot::{classes::{Control, Engine, IControl, Image, ImageTexture, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, image::Format}, global, prelude::*};
-use servo::{MouseButtonEvent, MouseMoveEvent, RenderingContext, SoftwareRenderingContext, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+use servo::{MouseButtonEvent, MouseMoveEvent, RenderingContext, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode, WindowRenderingContext};
 use url::Url;
 
-use crate::servo_manager::ServoManager;
+use crate::{godot_window_handle::GodotWindowHandle, servo_manager::ServoManager};
 
 enum ProxyEvent {
     UrlChanged(Url),
@@ -17,6 +18,7 @@ enum ProxyEvent {
 #[class(base=Control, tool, rename=WebView)]
 struct WebViewControl {
     base: Base<Control>,
+    window_rendering_context: Rc<WindowRenderingContext>,
     rendering_context: Rc<dyn RenderingContext>,
     webview: Rc<WebView>,
     event_queue: Rc<RefCell<Vec<ProxyEvent>>>,
@@ -33,10 +35,17 @@ impl IControl for WebViewControl {
             .get_singleton("ServoManager")
             .expect("Failed to get singleton")
             .cast::<ServoManager>();
-        let rendering_context = 
-            Rc::new(
-                SoftwareRenderingContext::new(PhysicalSize::new(800, 600))
-                .expect("Failed to create rendering context"));
+
+        let size = PhysicalSize::new(800, 600);
+        let window_rendering_context =
+            Rc::new(Self::get_window_context(size));
+        let rendering_context =
+            Rc::new(window_rendering_context.offscreen_context(size));
+        // let rendering_context = 
+        //     Rc::new(
+        //         SoftwareRenderingContext::new(size)
+        //         .expect("Failed to create rendering context"));
+        
         let event_queue = Rc::new(RefCell::new(Vec::new()));
         let webview =
             WebViewBuilder::new(
@@ -51,6 +60,7 @@ impl IControl for WebViewControl {
 
         Self {
             base,
+            window_rendering_context,
             rendering_context,
             webview: Rc::new(webview),
             event_queue,
@@ -211,6 +221,15 @@ impl WebViewControl {
             }
             self.base_mut().queue_redraw();
         }
+    }
+
+    fn get_window_context(size: PhysicalSize<u32>) -> WindowRenderingContext {
+        let godot_window = GodotWindowHandle::new();
+
+        let display_handle = godot_window.display_handle().expect("Failed to get display handle");
+        let window_handle = godot_window.window_handle().expect("Failed to get window handle");
+
+        WindowRenderingContext::new(display_handle, window_handle, size).expect("Failed to create window context")
     }
 }
 

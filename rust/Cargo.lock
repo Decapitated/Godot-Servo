@@ -2183,6 +2183,7 @@ dependencies = [
  "dpi",
  "euclid",
  "godot",
+ "raw-window-handle",
  "servo",
  "surfman 0.12.0",
  "url",
