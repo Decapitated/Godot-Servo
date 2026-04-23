@@ -3,10 +3,7 @@ use std::rc::Rc;
 use dpi::PhysicalSize;
 use euclid::{Box2D, Point2D};
 use godot::{classes::{Image, ImageTexture, Texture2D, image::Format}, prelude::*};
-use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use servo::{OffscreenRenderingContext, RenderingContext, SoftwareRenderingContext, WindowRenderingContext};
-
-use crate::{godot_window_handle::GodotWindowHandle};
 
 pub trait GodotRenderingContext {
     fn get_rendering_context(&self) -> Rc<dyn RenderingContext>;
@@ -108,15 +105,6 @@ impl GodotOffscreenRenderingContext {
             image: None,
             buffer: PackedByteArray::new()
         }
-    }
-
-    fn get_window_context(size: PhysicalSize<u32>) -> WindowRenderingContext {
-        let godot_window = GodotWindowHandle::new();
-
-        let display_handle = godot_window.display_handle().expect("Failed to get display handle");
-        let window_handle = godot_window.window_handle().expect("Failed to get window handle");
-
-        WindowRenderingContext::new(display_handle, window_handle, size).expect("Failed to create window context")
     }
 }
 
