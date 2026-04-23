@@ -47,7 +47,6 @@ impl IControl for WebViewControl {
             .delegate(Rc::new(Proxy {
                 event_queue: event_queue.clone(),
             }))
-            .url(Url::parse("https://demo.servo.org/").expect("Failed to parse url"))
             .build();
 
         Self {
@@ -192,6 +191,16 @@ impl WebViewControl {
         self.webview.paint();
         self.rendering_context.borrow_mut().update();
         self.base_mut().queue_redraw();
+    }
+
+    #[func]
+    fn load_url(&mut self, url: String) {
+        let url = Url::parse(&url);
+        if let Ok(url) = url {
+            self.webview.load(url);
+        } else if let Err(err) = url {
+            godot_error!("Failed to parse url: {}", err);
+        }
     }
 }
 
