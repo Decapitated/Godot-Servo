@@ -26,15 +26,17 @@ struct WebViewControl {
 #[godot_api]
 impl IControl for WebViewControl {
     fn init(base: Base<Control>) -> Self {
-        let servo_manager = 
+        let mut servo_manager = 
             Engine::singleton()
             .get_singleton("ServoManager")
             .expect("Failed to get singleton")
             .cast::<ServoManager>();
 
-        let size = PhysicalSize::new(800, 600);
+        let window_rendering_context = servo_manager.bind_mut().get_window_context();
         let rendering_context = Rc::new(RefCell::new(
-            GodotOffscreenRenderingContext::new(size)));
+            GodotOffscreenRenderingContext::new(window_rendering_context)));
+        // let rendering_context = Rc::new(RefCell::new(
+        //     GodotSoftwareRenderingContext::new(size)));
         
         let event_queue = Rc::new(RefCell::new(Vec::new()));
         let webview =

@@ -6,7 +6,7 @@ use godot::{classes::{Image, ImageTexture, Texture2D, image::Format}, prelude::*
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use servo::{OffscreenRenderingContext, RenderingContext, SoftwareRenderingContext, WindowRenderingContext};
 
-use crate::godot_window_handle::GodotWindowHandle;
+use crate::{godot_window_handle::GodotWindowHandle};
 
 pub trait GodotRenderingContext {
     fn get_rendering_context(&self) -> Rc<dyn RenderingContext>;
@@ -15,6 +15,7 @@ pub trait GodotRenderingContext {
     fn resized(&mut self);
 }
 
+/* #region SoftwareRenderingContext */
 pub struct GodotSoftwareRenderingContext {
     rendering_context: Rc<SoftwareRenderingContext>,
     image_texture: Option<Gd<ImageTexture>>,
@@ -87,9 +88,10 @@ impl GodotRenderingContext for GodotSoftwareRenderingContext {
         self.image_texture = None;
     }
 }
+/* #endregion */
 
+/* #region OffscreenRenderingContext */
 pub struct GodotOffscreenRenderingContext {
-    _window_rendering_context: Rc<WindowRenderingContext>,
     rendering_context: Rc<OffscreenRenderingContext>,
     image_texture: Option<Gd<ImageTexture>>,
     image: Option<Gd<Image>>,
@@ -97,13 +99,10 @@ pub struct GodotOffscreenRenderingContext {
 }
 
 impl GodotOffscreenRenderingContext {
-    pub fn new(size: PhysicalSize<u32>) -> Self {
-        let _window_rendering_context =
-            Rc::new(Self::get_window_context(size));
+    pub fn new(window_rendering_context: Rc<WindowRenderingContext>) -> Self {
         let rendering_context =
-            Rc::new(_window_rendering_context.offscreen_context(size));
+            Rc::new(window_rendering_context.offscreen_context(window_rendering_context.size()));
         Self {
-            _window_rendering_context,
             rendering_context,
             image_texture: None,
             image: None,
@@ -178,3 +177,5 @@ impl GodotRenderingContext for GodotOffscreenRenderingContext {
         self.image_texture = None;
     }
 }
+
+/* #endregion */
