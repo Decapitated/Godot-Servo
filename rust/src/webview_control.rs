@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use dpi::PhysicalSize;
 use euclid::Point2D;
-use godot::{classes::{Control, Engine, IControl, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion}, global, prelude::*};
+use godot::{classes::{Control, Engine, IControl, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, control::CursorShape}, global, prelude::*};
 use servo::{MouseButtonEvent, MouseMoveEvent, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
 use url::Url;
 
@@ -11,6 +11,7 @@ use crate::{godot_rendering_context::{GodotOffscreenRenderingContext, GodotRende
 enum ProxyEvent {
     UrlChanged(Url),
     NewFrameReady,
+    CursorChanged(CursorShape)
 }
 
 #[derive(GodotClass)]
@@ -154,6 +155,9 @@ impl IControl for WebViewControl {
                 },
                 ProxyEvent::NewFrameReady => {
                     self.update_image();
+                },
+                ProxyEvent::CursorChanged(cursor) => {
+                    self.base_mut().set_default_cursor_shape(cursor);
                 }
             }
         }
@@ -190,5 +194,47 @@ impl WebViewDelegate for Proxy {
 
     fn notify_new_frame_ready(&self, _webview: WebView) {
         self.event_queue.borrow_mut().push(ProxyEvent::NewFrameReady);
+    }
+
+    fn notify_cursor_changed(&self, _webview: WebView, cursor: servo::Cursor) {
+        let cursor_shape: CursorShape = match cursor {
+            // servo::Cursor::None => todo!(),
+            // servo::Cursor::Default => todo!(),
+            servo::Cursor::Pointer => CursorShape::POINTING_HAND,
+            // servo::Cursor::ContextMenu => todo!(),
+            servo::Cursor::Help => CursorShape::HELP,
+            servo::Cursor::Progress => CursorShape::BUSY,
+            servo::Cursor::Wait => CursorShape::WAIT,
+            // servo::Cursor::Cell => todo!(),
+            servo::Cursor::Crosshair => CursorShape::CROSS,
+            servo::Cursor::Text => CursorShape::IBEAM,
+            servo::Cursor::VerticalText => CursorShape::IBEAM,
+            // servo::Cursor::Alias => todo!(),
+            // servo::Cursor::Copy => todo!(),
+            servo::Cursor::Move => CursorShape::MOVE,
+            servo::Cursor::NoDrop => CursorShape::FORBIDDEN,
+            servo::Cursor::NotAllowed => CursorShape::FORBIDDEN,
+            // servo::Cursor::Grab => todo!(),
+            // servo::Cursor::Grabbing => todo!(),
+            servo::Cursor::EResize => CursorShape::HSIZE,
+            servo::Cursor::NResize => CursorShape::VSIZE,
+            servo::Cursor::NeResize => CursorShape::BDIAGSIZE,
+            servo::Cursor::NwResize => CursorShape::FDIAGSIZE,
+            servo::Cursor::SResize => CursorShape::VSIZE,
+            servo::Cursor::SeResize => CursorShape::FDIAGSIZE,
+            servo::Cursor::SwResize => CursorShape::BDIAGSIZE,
+            servo::Cursor::WResize => CursorShape::HSIZE,
+            servo::Cursor::EwResize => CursorShape::HSIZE,
+            servo::Cursor::NsResize => CursorShape::BDIAGSIZE,
+            servo::Cursor::NeswResize => CursorShape::BDIAGSIZE,
+            servo::Cursor::NwseResize => CursorShape::FDIAGSIZE,
+            servo::Cursor::ColResize => CursorShape::HSPLIT,
+            servo::Cursor::RowResize => CursorShape::VSPLIT,
+            servo::Cursor::AllScroll => CursorShape::DRAG,
+            // servo::Cursor::ZoomIn => todo!(),
+            // servo::Cursor::ZoomOut => todo!(),
+            _ => CursorShape::ARROW
+        };
+        self.event_queue.borrow_mut().push(ProxyEvent::CursorChanged(cursor_shape));
     }
 }
