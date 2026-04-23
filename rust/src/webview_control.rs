@@ -188,12 +188,13 @@ impl WebViewControl {
     }
 
     fn update_image(&mut self) {
+        self.webview.paint();
+
         if let Err(e) = self.rendering_context.make_current() {
             godot_error!("WebViewControl: Failed to make GL context current: {:?}", e);
             return;
         }
 
-        self.webview.paint();
         self.rendering_context.present();
 
         let window_size = self.rendering_context.size();
