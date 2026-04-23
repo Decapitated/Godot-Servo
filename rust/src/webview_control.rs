@@ -60,6 +60,9 @@ impl IControl for WebViewControl {
 
     fn ready(&mut self) {
         self.signals().resized().connect_self(Self::on_resize);
+        // self.signals().mouse_entered().connect_self(Self::on_mouse_entered);
+        // self.signals().mouse_exited().connect_self(Self::on_mouse_exited);
+
         self.on_resize();
     }
 
@@ -176,6 +179,14 @@ impl WebViewControl {
         });
         self.update_image();
     }
+
+    // fn on_mouse_entered(&mut self) {
+    //     self.webview.focus();
+    // }
+
+    // fn on_mouse_exited(&mut self) {
+    //     self.webview.blur();
+    // }
 
     fn update_image(&mut self) {
         self.webview.paint();
