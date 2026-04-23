@@ -2,7 +2,7 @@ extends Control
 
 const ICON_SVG: Texture2D = preload("res://icon.svg")
 
-@onready var cursors_container: GridContainer = %Cursors
+@onready var cursors_container: Container = %Cursors
 
 func _ready() -> void:
     var enum_values: PackedStringArray = ClassDB.class_get_enum_constants("Control", "CursorShape", true)
