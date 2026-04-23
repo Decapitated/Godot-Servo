@@ -71,7 +71,6 @@ impl IControl for WebViewControl {
     }
 
     fn gui_input(&mut self, event: Gd<InputEvent>) {
-        let event = self.base().make_input_local(&event);
         let mut webview_event: Option<servo::InputEvent> = None;
         if let Ok(mouse_event) = event.clone().try_cast::<InputEventMouse>() {
             let position = mouse_event.get_position();
