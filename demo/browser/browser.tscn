@@ -1,0 +1,78 @@
+[gd_scene format=3 uid="uid://c6a2c27rytpci"]
+
+[ext_resource type="Script" uid="uid://c66bcfrocaypq" path="res://browser/browser.gd" id="1_cns6c"]
+[ext_resource type="FontFile" uid="uid://b04ldwe17hkub" path="res://assets/MaterialSymbolsRounded-VariableFont_FILL,GRAD,opsz,wght.ttf" id="2_vmb4q"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_cns6c"]
+content_margin_left = 8.0
+content_margin_top = 8.0
+content_margin_right = 8.0
+content_margin_bottom = 8.0
+bg_color = Color(0.1, 0.1, 0.1, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[node name="Browser" type="Control" unique_id=211383710]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_cns6c")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="." unique_id=670509096]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="Top" type="PanelContainer" parent="VBoxContainer" unique_id=365596773]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_cns6c")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/Top" unique_id=1649341673]
+layout_mode = 2
+
+[node name="MainBar" type="HBoxContainer" parent="VBoxContainer/Top/VBoxContainer" unique_id=11731793]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="PageControls" type="HBoxContainer" parent="VBoxContainer/Top/VBoxContainer/MainBar" unique_id=1836753749]
+layout_mode = 2
+
+[node name="BackButton" type="Button" parent="VBoxContainer/Top/VBoxContainer/MainBar/PageControls" unique_id=780594783]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
+theme_override_fonts/font = ExtResource("2_vmb4q")
+text = "arrow_back"
+
+[node name="ForwardButton" type="Button" parent="VBoxContainer/Top/VBoxContainer/MainBar/PageControls" unique_id=816752638]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
+theme_override_fonts/font = ExtResource("2_vmb4q")
+text = "arrow_forward"
+
+[node name="RefreshButton" type="Button" parent="VBoxContainer/Top/VBoxContainer/MainBar/PageControls" unique_id=1087105668]
+unique_name_in_owner = true
+layout_mode = 2
+theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
+theme_override_fonts/font = ExtResource("2_vmb4q")
+text = "refresh"
+
+[node name="LinkLineEdit" type="LineEdit" parent="VBoxContainer/Top/VBoxContainer/MainBar" unique_id=874405881]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="WebView" type="WebView" parent="VBoxContainer" unique_id=1382712379]
+layout_mode = 2
+size_flags_vertical = 3
