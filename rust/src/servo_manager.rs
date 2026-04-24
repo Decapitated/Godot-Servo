@@ -3,7 +3,7 @@ use std::{rc::Rc, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 use dpi::PhysicalSize;
 use godot::prelude::*;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use servo::{EventLoopWaker, Servo, ServoBuilder, WindowRenderingContext};
+use servo::{EventLoopWaker, Opts, Preferences, Servo, ServoBuilder, WindowRenderingContext};
 
 use crate::godot_window_handle::GodotWindowHandle;
 
@@ -20,10 +20,19 @@ pub struct ServoManager {
 #[godot_api]
 impl IObject for ServoManager {
     fn init(base: Base<Object>) -> Self {
+        let opts = Opts::default();
+
+        let mut preferences = Preferences::default();
+        preferences.user_agent = 
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0".to_owned();
+        
         let needs_wake = Arc::new(AtomicBool::new(false));
         let servo = ServoBuilder::default()
+            .opts(opts)
+            .preferences(preferences)
             .event_loop_waker(Box::new(Proxy { needs_wake: Arc::clone(&needs_wake) }))
             .build();
+
         Self {
             base,
             servo,
