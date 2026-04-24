@@ -244,6 +244,21 @@ impl WebViewControl {
             godot_error!("Failed to parse url: {}", err);
         }
     }
+
+    #[func]
+    fn reload(&mut self) {
+        self.webview.reload();
+    }
+
+    #[func]
+    fn back(&mut self) {
+        self.webview.go_back(1);
+    }
+
+    #[func]
+    fn forward(&mut self) {
+        self.webview.go_forward(1);
+    }
 }
 
 enum ProxyEvent {
