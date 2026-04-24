@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Servo Demo"
+run/main_scene="uid://c6a2c27rytpci"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://icon.svg"
 
