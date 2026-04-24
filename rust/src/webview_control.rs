@@ -2,17 +2,12 @@ use std::{cell::RefCell, rc::Rc};
 
 use dpi::PhysicalSize;
 use euclid::Point2D;
-use godot::{classes::{Control, Engine, IControl, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, control::CursorShape}, global, prelude::*};
-use servo::{MouseButtonEvent, MouseMoveEvent, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
+use godot::{classes::{Control, Engine, FileAccess, IControl, InputEvent, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, control::CursorShape, file_access::ModeFlags}, global, prelude::*};
+use http::{HeaderMap, HeaderValue, header};
+use servo::{MouseButtonEvent, MouseMoveEvent, WebResourceResponse, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
 use url::Url;
 
-use crate::{godot_rendering_context::{GodotOffscreenRenderingContext, GodotRenderingContext}, servo_manager::ServoManager};
-
-enum ProxyEvent {
-    UrlChanged(Url),
-    NewFrameReady,
-    CursorChanged(CursorShape)
-}
+use crate::{godot_rendering_context::{GodotOffscreenRenderingContext, GodotRenderingContext}, mime::to_mime, servo_manager::ServoManager};
 
 #[derive(GodotClass)]
 #[class(base=Control, tool, rename=WebView)]
@@ -147,28 +142,16 @@ impl IControl for WebViewControl {
         } else {
             servo_manager.bind_mut().wake_if_needed();
         }
-            
 
-        let events: Vec<ProxyEvent> = self.event_queue.borrow_mut().drain(..).collect();
-        for event in events {
-            match event {
-                ProxyEvent::UrlChanged(url) => {
-                    godot_print!("WebViewControl: URL changed to {}", url.as_str());
-
-                },
-                ProxyEvent::NewFrameReady => {
-                    self.update_image();
-                },
-                ProxyEvent::CursorChanged(cursor) => {
-                    self.base_mut().set_default_cursor_shape(cursor);
-                }
-            }
-        }
+        self.process_events();
     }
 }
 
 #[godot_api]
 impl WebViewControl {
+    #[signal]
+    fn url_changed(url: String);
+
     fn on_resize(&mut self) {
         self.rendering_context.borrow_mut().resized();
         let control_size = self.base().get_size();
@@ -193,8 +176,67 @@ impl WebViewControl {
         self.base_mut().queue_redraw();
     }
 
+    fn process_events(&mut self) {
+        let events: Vec<ProxyEvent> = self.event_queue.borrow_mut().drain(..).collect();
+        for event in events {
+            match event {
+                ProxyEvent::UrlChanged(url) => {
+                    self.signals().url_changed().emit(url.as_str().to_string());
+                },
+                ProxyEvent::NewFrameReady => {
+                    self.update_image();
+                },
+                ProxyEvent::CursorChanged(cursor) => {
+                    self.base_mut().set_default_cursor_shape(cursor);
+                },
+                ProxyEvent::LoadWebResource(load) => {
+                    self.load_web_resource(load);
+                }
+            }
+        }
+    }
+
+    fn load_web_resource(&self, load: servo::WebResourceLoad) {
+        let url = load.request().url.clone();
+        let path = url.as_str();
+        if FileAccess::file_exists(path) {
+            let file = FileAccess::open(path, ModeFlags::READ);
+            if let Some(mut file) = file {
+                let extension = GString::from(path).get_extension().to_string();
+                let mut headers = HeaderMap::new();
+                if let Some(mime) = to_mime(extension.as_str()) {
+                    headers.insert(
+                        header::CONTENT_TYPE,
+                        HeaderValue::from_static(mime),
+                    );
+                }
+
+                let response = WebResourceResponse::new(url)
+                    .status_code(http::StatusCode::OK)
+                    .headers(headers);
+
+                let mut intercept_load = load.intercept(response);
+
+                let length = file.get_length() as i64;
+                let content = file.get_buffer(length);
+
+                intercept_load.send_body_data(content.to_vec());
+                intercept_load.finish();
+            } else {
+                let response = WebResourceResponse::new(url)
+                    .status_code(http::StatusCode::NOT_FOUND);
+                let intercepted = load.intercept(response);
+                intercepted.finish();
+            }
+        }
+    }
+
     #[func]
-    fn load_url(&mut self, url: String) {
+    fn load_url(&mut self, mut url: String) {
+        let url_split = url.split_once("://");
+        if url_split.is_none() {
+            url = format!("https://{}", url);
+        }
         let url = Url::parse(&url);
         if let Ok(url) = url {
             self.webview.load(url);
@@ -202,6 +244,13 @@ impl WebViewControl {
             godot_error!("Failed to parse url: {}", err);
         }
     }
+}
+
+enum ProxyEvent {
+    UrlChanged(Url),
+    NewFrameReady,
+    CursorChanged(CursorShape),
+    LoadWebResource(servo::WebResourceLoad)
 }
 
 struct Proxy {
@@ -257,5 +306,15 @@ impl WebViewDelegate for Proxy {
             _ => CursorShape::ARROW
         };
         self.event_queue.borrow_mut().push(ProxyEvent::CursorChanged(cursor_shape));
+    }
+
+    // fn request_navigation(&self, _webview: WebView, _navigation_request: servo::NavigationRequest) {
+        
+    // }
+
+    fn load_web_resource(&self, _webview: WebView, load: servo::WebResourceLoad) {
+        if load.request().url.to_string().starts_with("res://") {
+            self.event_queue.borrow_mut().push(ProxyEvent::LoadWebResource(load));
+        }
     }
 }
