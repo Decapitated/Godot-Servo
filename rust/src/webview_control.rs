@@ -331,5 +331,11 @@ impl WebViewDelegate for Proxy {
         if load.request().url.to_string().starts_with("res://") {
             self.event_queue.borrow_mut().push(ProxyEvent::LoadWebResource(load));
         }
+        // else {
+        //     let mut request = load.request;
+        //     request.headers.insert(
+        //         header::USER_AGENT,
+        //         HeaderValue::from_static(""));
+        // }
     }
 }
