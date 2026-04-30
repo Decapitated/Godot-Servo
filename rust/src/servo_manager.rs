@@ -1,9 +1,9 @@
 use std::{rc::Rc, sync::{Arc, atomic::{AtomicBool, Ordering}}};
 
 use dpi::PhysicalSize;
-use godot::prelude::*;
+use godot::{classes::Engine, prelude::*};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use servo::{EventLoopWaker, Opts, Preferences, Servo, ServoBuilder, WindowRenderingContext};
+use servo::{AllowOrDenyRequest, EventLoopWaker, Opts, Preferences, Servo, ServoBuilder, ServoDelegate, WindowRenderingContext};
 
 use crate::godot_window_handle::GodotWindowHandle;
 
@@ -20,20 +20,24 @@ pub struct ServoManager {
 #[godot_api]
 impl IObject for ServoManager {
     fn init(base: Base<Object>) -> Self {
+        let engine = Engine::singleton();
         let opts = Opts::default();
 
         let mut preferences = Preferences::default();
-        preferences.devtools_server_enabled = true;
-        preferences.devtools_server_listen_address = "127.0.0.1:6080".to_owned();
-        preferences.user_agent = 
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0".to_owned();
+        preferences.dom_serviceworker_enabled = true; // Needed for devtools.
+        if !engine.is_editor_hint() {
+            preferences.devtools_server_enabled = true;
+            preferences.devtools_server_listen_address = "127.0.0.1:6080".to_owned();
+        }
         
         let needs_wake = Arc::new(AtomicBool::new(false));
         let servo = ServoBuilder::default()
             .opts(opts)
             .preferences(preferences)
-            .event_loop_waker(Box::new(Proxy { needs_wake: Arc::clone(&needs_wake) }))
+            .event_loop_waker(Box::new(WakerProxy { needs_wake: Arc::clone(&needs_wake) }))
             .build();
+
+        servo.set_delegate(Rc::new(DelegateProxy));
 
         Self {
             base,
@@ -80,17 +84,29 @@ impl ServoManager {
     }
 }
 
-struct Proxy {
+struct WakerProxy {
     needs_wake: Arc<AtomicBool>,
 }
 
-impl EventLoopWaker for Proxy {
+impl EventLoopWaker for WakerProxy {
     fn clone_box(&self) -> Box<dyn EventLoopWaker> {
-        Box::new(Proxy { needs_wake: Arc::clone(&self.needs_wake) })
+        Box::new(WakerProxy { needs_wake: Arc::clone(&self.needs_wake) })
     }
 
     fn wake(&self) {
         // Safe to call from any thread — just flips an atomic flag
         self.needs_wake.store(true, Ordering::Relaxed);
+    }
+}
+
+struct DelegateProxy;
+
+impl ServoDelegate for DelegateProxy {
+    fn notify_devtools_server_started(&self, port: u16, _token: String) {
+        godot_print!("Servo DevTools server started on port {}", port);
+    }
+
+    fn request_devtools_connection(&self, request: AllowOrDenyRequest) {
+        request.allow();
     }
 }
