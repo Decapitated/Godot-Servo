@@ -11,6 +11,7 @@ dpi = "0.1.2"
 euclid = "0.22.14"
 godot = { version = "0.5.1", features = ["api-4-6"] }
 http = "1.4.0"
+keyboard-types = "0.8.3"
 raw-window-handle = "0.6.2"
 servo = "0.1.0"
 surfman = "0.12.0"
