@@ -41,6 +41,7 @@ theme_override_styles/panel = SubResource("StyleBoxFlat_cns6c")
 layout_mode = 2
 
 [node name="MainBar" type="HBoxContainer" parent="VBoxContainer/Top/VBoxContainer" unique_id=11731793]
+unique_name_in_owner = true
 layout_mode = 2
 theme_override_constants/separation = 16
 
@@ -73,7 +74,12 @@ unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 
+[node name="BookmarkBar" type="HBoxContainer" parent="VBoxContainer/Top/VBoxContainer" unique_id=1957383704]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="WebView" type="WebView" parent="VBoxContainer" unique_id=1382712379]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_vertical = 3
+focus_mode = 2
