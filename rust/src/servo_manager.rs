@@ -24,6 +24,7 @@ impl IObject for ServoManager {
         let opts = Opts::default();
 
         let mut preferences = Preferences::default();
+        preferences.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0".to_owned();
         preferences.dom_serviceworker_enabled = true; // Needed for devtools.
         if !engine.is_editor_hint() {
             preferences.devtools_server_enabled = true;
