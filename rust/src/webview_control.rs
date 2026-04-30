@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc};
 
 use dpi::PhysicalSize;
 use euclid::Point2D;
-use godot::{classes::{Control, Engine, FileAccess, IControl, InputEvent, InputEventKey, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, control::{CursorShape, FocusMode}, file_access::ModeFlags}, global, prelude::*};
+use godot::{classes::{Control, Engine, FileAccess, IControl, InputEvent, InputEventKey, InputEventMouse, InputEventMouseButton, InputEventMouseMotion, Os, control::{CursorShape, FocusMode}, file_access::ModeFlags}, global::{self, KeyLocation, KeyModifierMask}, obj::EngineEnum, prelude::*};
 use http::{HeaderMap, HeaderValue, header};
 use keyboard_types::{Code, Key, KeyState, Location, Modifiers};
 use servo::{KeyboardEvent as ServoKeyboardEvent, MouseButtonEvent, MouseMoveEvent, NamedKey, WebResourceResponse, WebView, WebViewBuilder, WebViewDelegate, WebViewPoint, WheelDelta, WheelEvent, WheelMode};
@@ -129,42 +129,40 @@ impl IControl for WebViewControl {
             }
             self.base_mut().accept_event();
         } else if let Ok(key_event) = event.try_cast::<InputEventKey>() {
-            let state = if key_event.is_pressed() { KeyState::Down } else { KeyState::Up };
-
-            // Use the unicode codepoint for printable characters so that layout-dependent
-            // keys (accents, symbols, shifted digits, etc.) are handled automatically.
-            // Fall back to the named-key mapping when no printable character is produced
-            // or when Ctrl is held (where the unicode value would be a control byte).
-            let unicode = key_event.get_unicode();
-            let use_char = unicode > 0x1f   // skip ASCII control characters
-                && unicode != 0x7f          // skip DEL
-                && !key_event.is_ctrl_pressed();
-            let key = if use_char {
-                if let Some(c) = char::from_u32(unicode as u32) {
-                    let mut s = String::new();
-                    s.push(c);
-                    Key::Character(s)
-                } else {
-                    godot_key_to_key(key_event.get_keycode())
-                }
+            let os = Os::singleton();
+            // Key
+            let keycode = key_event.get_keycode();
+            let is_unicode = os.is_keycode_unicode(keycode.ord() as u32);
+            let key = if is_unicode {
+                let character = GString::chr(key_event.get_unicode().into());
+                Key::Character(character.to_string())
             } else {
-                godot_key_to_key(key_event.get_keycode())
+                godot_key_to_key(keycode)  
             };
-
-            let code = godot_key_to_code(key_event.get_physical_keycode());
-
-            let mut modifiers = Modifiers::empty();
-            if key_event.is_ctrl_pressed()  { modifiers |= Modifiers::CONTROL; }
-            if key_event.is_shift_pressed() { modifiers |= Modifiers::SHIFT; }
-            if key_event.is_alt_pressed()   { modifiers |= Modifiers::ALT; }
-            if key_event.is_meta_pressed()  { modifiers |= Modifiers::META; }
-
+            // State
+            let state = match key_event.is_pressed() {
+                true => KeyState::Down,
+                false => KeyState::Up
+            };
+            // Code
+            let code = godot_key_to_code(key_event.get_physical_keycode(), key_event.get_location());
+            // Modifiers
+            let modifiers = key_event.get_modifiers_mask().ord() as i32;
+            let mut servo_modifiers: u32 = 0;
+            for modifier in KeyModifierMask::all_constants() {
+                let modifier = modifier.value();
+                let modifier_ord = modifier.ord() as i32;
+                if (modifiers & modifier_ord) == modifier_ord {
+                    servo_modifiers |= godot_modifier_to_modifier(modifier).bits();
+                }
+            }
+            let servo_modifiers = Modifiers::from_bits_retain(servo_modifiers);
             let kb_event = keyboard_types::KeyboardEvent {
                 state,
                 key,
                 code,
                 location: Location::Standard,
-                modifiers,
+                modifiers: servo_modifiers,
                 repeat: key_event.is_echo(),
                 is_composing: false,
             };
@@ -395,147 +393,245 @@ impl WebViewDelegate for Proxy {
 /// this function covers only non-printable / named keys.
 fn godot_key_to_key(keycode: global::Key) -> Key {
     match keycode {
+        // Confirm / whitespace
         global::Key::ENTER | global::Key::KP_ENTER => Key::Named(NamedKey::Enter),
-        global::Key::TAB => Key::Named(NamedKey::Tab),
-        global::Key::BACKSPACE => Key::Named(NamedKey::Backspace),
-        global::Key::ESCAPE => Key::Named(NamedKey::Escape),
-        global::Key::DELETE => Key::Named(NamedKey::Delete),
-        global::Key::INSERT => Key::Named(NamedKey::Insert),
-        global::Key::HOME => Key::Named(NamedKey::Home),
-        global::Key::END => Key::Named(NamedKey::End),
-        global::Key::PAGEUP => Key::Named(NamedKey::PageUp),
+        global::Key::TAB | global::Key::BACKTAB => Key::Named(NamedKey::Tab),
+        global::Key::SPACE => Key::Character(" ".to_string()),
+
+        // Editing
+        global::Key::BACKSPACE  => Key::Named(NamedKey::Backspace),
+        global::Key::DELETE     => Key::Named(NamedKey::Delete),
+        global::Key::INSERT     => Key::Named(NamedKey::Insert),
+        global::Key::CLEAR      => Key::Named(NamedKey::Clear),
+        global::Key::PAUSE      => Key::Named(NamedKey::Pause),
+
+        // Navigation
+        global::Key::HOME     => Key::Named(NamedKey::Home),
+        global::Key::END      => Key::Named(NamedKey::End),
+        global::Key::PAGEUP   => Key::Named(NamedKey::PageUp),
         global::Key::PAGEDOWN => Key::Named(NamedKey::PageDown),
-        global::Key::LEFT => Key::Named(NamedKey::ArrowLeft),
-        global::Key::RIGHT => Key::Named(NamedKey::ArrowRight),
-        global::Key::UP => Key::Named(NamedKey::ArrowUp),
-        global::Key::DOWN => Key::Named(NamedKey::ArrowDown),
-        global::Key::F1 => Key::Named(NamedKey::F1),
-        global::Key::F2 => Key::Named(NamedKey::F2),
-        global::Key::F3 => Key::Named(NamedKey::F3),
-        global::Key::F4 => Key::Named(NamedKey::F4),
-        global::Key::F5 => Key::Named(NamedKey::F5),
-        global::Key::F6 => Key::Named(NamedKey::F6),
-        global::Key::F7 => Key::Named(NamedKey::F7),
-        global::Key::F8 => Key::Named(NamedKey::F8),
-        global::Key::F9 => Key::Named(NamedKey::F9),
+        global::Key::LEFT     => Key::Named(NamedKey::ArrowLeft),
+        global::Key::RIGHT    => Key::Named(NamedKey::ArrowRight),
+        global::Key::UP       => Key::Named(NamedKey::ArrowUp),
+        global::Key::DOWN     => Key::Named(NamedKey::ArrowDown),
+
+        // Modifiers
+        global::Key::SHIFT      => Key::Named(NamedKey::Shift),
+        global::Key::CTRL       => Key::Named(NamedKey::Control),
+        global::Key::ALT        => Key::Named(NamedKey::Alt),
+        global::Key::META       => Key::Named(NamedKey::Meta),
+        #[allow(deprecated)]
+        global::Key::HYPER      => Key::Named(NamedKey::Hyper),
+        global::Key::CAPSLOCK   => Key::Named(NamedKey::CapsLock),
+        global::Key::NUMLOCK    => Key::Named(NamedKey::NumLock),
+        global::Key::SCROLLLOCK => Key::Named(NamedKey::ScrollLock),
+
+        // System
+        global::Key::ESCAPE        => Key::Named(NamedKey::Escape),
+        global::Key::PRINT         => Key::Named(NamedKey::PrintScreen),
+        global::Key::SYSREQ        => Key::Named(NamedKey::PrintScreen),
+        global::Key::MENU          => Key::Named(NamedKey::ContextMenu),
+        global::Key::HELP          => Key::Named(NamedKey::Help),
+        global::Key::STANDBY       => Key::Named(NamedKey::Standby),
+
+        // Function keys
+        global::Key::F1  => Key::Named(NamedKey::F1),
+        global::Key::F2  => Key::Named(NamedKey::F2),
+        global::Key::F3  => Key::Named(NamedKey::F3),
+        global::Key::F4  => Key::Named(NamedKey::F4),
+        global::Key::F5  => Key::Named(NamedKey::F5),
+        global::Key::F6  => Key::Named(NamedKey::F6),
+        global::Key::F7  => Key::Named(NamedKey::F7),
+        global::Key::F8  => Key::Named(NamedKey::F8),
+        global::Key::F9  => Key::Named(NamedKey::F9),
         global::Key::F10 => Key::Named(NamedKey::F10),
         global::Key::F11 => Key::Named(NamedKey::F11),
         global::Key::F12 => Key::Named(NamedKey::F12),
-        global::Key::SHIFT => Key::Named(NamedKey::Shift),
-        global::Key::CTRL => Key::Named(NamedKey::Control),
-        global::Key::ALT => Key::Named(NamedKey::Alt),
-        global::Key::META => Key::Named(NamedKey::Meta),
-        global::Key::CAPSLOCK => Key::Named(NamedKey::CapsLock),
-        global::Key::NUMLOCK => Key::Named(NamedKey::NumLock),
-        global::Key::SCROLLLOCK => Key::Named(NamedKey::ScrollLock),
-        global::Key::PAUSE => Key::Named(NamedKey::Pause),
-        global::Key::PRINT => Key::Named(NamedKey::PrintScreen),
-        global::Key::SPACE => Key::Character(" ".to_string()),
+        global::Key::F13 => Key::Named(NamedKey::F13),
+        global::Key::F14 => Key::Named(NamedKey::F14),
+        global::Key::F15 => Key::Named(NamedKey::F15),
+        global::Key::F16 => Key::Named(NamedKey::F16),
+        global::Key::F17 => Key::Named(NamedKey::F17),
+        global::Key::F18 => Key::Named(NamedKey::F18),
+        global::Key::F19 => Key::Named(NamedKey::F19),
+        global::Key::F20 => Key::Named(NamedKey::F20),
+        global::Key::F21 => Key::Named(NamedKey::F21),
+        global::Key::F22 => Key::Named(NamedKey::F22),
+        global::Key::F23 => Key::Named(NamedKey::F23),
+        global::Key::F24 => Key::Named(NamedKey::F24),
+        global::Key::F25 => Key::Named(NamedKey::F25),
+        global::Key::F26 => Key::Named(NamedKey::F26),
+        global::Key::F27 => Key::Named(NamedKey::F27),
+        global::Key::F28 => Key::Named(NamedKey::F28),
+        global::Key::F29 => Key::Named(NamedKey::F29),
+        global::Key::F30 => Key::Named(NamedKey::F30),
+        global::Key::F31 => Key::Named(NamedKey::F31),
+        global::Key::F32 => Key::Named(NamedKey::F32),
+        global::Key::F33 => Key::Named(NamedKey::F33),
+        global::Key::F34 => Key::Named(NamedKey::F34),
+        global::Key::F35 => Key::Named(NamedKey::F35),
+
+        // Numpad operators — KP digits are handled upstream by is_keycode_unicode
+        global::Key::KP_MULTIPLY => Key::Character("*".to_string()),
+        global::Key::KP_DIVIDE   => Key::Character("/".to_string()),
+        global::Key::KP_SUBTRACT => Key::Character("-".to_string()),
+        global::Key::KP_ADD      => Key::Character("+".to_string()),
+        global::Key::KP_PERIOD   => Key::Character(".".to_string()),
+
+        // Media playback
+        global::Key::MEDIAPLAY     => Key::Named(NamedKey::MediaPlay),
+        global::Key::MEDIASTOP     => Key::Named(NamedKey::MediaStop),
+        global::Key::MEDIAPREVIOUS => Key::Named(NamedKey::MediaTrackPrevious),
+        global::Key::MEDIANEXT     => Key::Named(NamedKey::MediaTrackNext),
+        global::Key::MEDIARECORD   => Key::Named(NamedKey::MediaRecord),
+
+        // Volume
+        global::Key::VOLUMEUP   => Key::Named(NamedKey::AudioVolumeUp),
+        global::Key::VOLUMEDOWN => Key::Named(NamedKey::AudioVolumeDown),
+        global::Key::VOLUMEMUTE => Key::Named(NamedKey::AudioVolumeMute),
+
+        // Browser
+        global::Key::BACK      => Key::Named(NamedKey::BrowserBack),
+        global::Key::FORWARD   => Key::Named(NamedKey::BrowserForward),
+        global::Key::STOP      => Key::Named(NamedKey::BrowserStop),
+        global::Key::REFRESH   => Key::Named(NamedKey::BrowserRefresh),
+        global::Key::HOMEPAGE  => Key::Named(NamedKey::BrowserHome),
+        global::Key::FAVORITES => Key::Named(NamedKey::BrowserFavorites),
+        global::Key::SEARCH    => Key::Named(NamedKey::BrowserSearch),
+        global::Key::OPENURL   => Key::Named(NamedKey::LaunchWebBrowser),
+
+        // Launch
+        global::Key::LAUNCHMAIL  => Key::Named(NamedKey::LaunchMail),
+        global::Key::LAUNCHMEDIA => Key::Named(NamedKey::LaunchMediaPlayer),
+        global::Key::LAUNCH0     => Key::Named(NamedKey::LaunchApplication1),
+        global::Key::LAUNCH1     => Key::Named(NamedKey::LaunchApplication1),
+        global::Key::LAUNCH2     => Key::Named(NamedKey::LaunchApplication2),
+        global::Key::LAUNCH3     => Key::Named(NamedKey::LaunchApplication2),
+        // LAUNCH4-9 and LAUNCHA-F have no servo equivalents
+
+        // IME / JIS
+        global::Key::JIS_EISU => Key::Named(NamedKey::Eisu),
+        global::Key::JIS_KANA => Key::Named(NamedKey::KanaMode),
+
         _ => Key::Named(NamedKey::Unidentified),
     }
 }
 
 /// Maps a Godot physical keycode to a `keyboard_types::Code`.
 /// Physical keycodes represent the key's position on the keyboard regardless of layout.
-fn godot_key_to_code(physical: global::Key) -> Code {
-    match physical {
-        global::Key::A => Code::KeyA,
-        global::Key::B => Code::KeyB,
-        global::Key::C => Code::KeyC,
-        global::Key::D => Code::KeyD,
-        global::Key::E => Code::KeyE,
-        global::Key::F => Code::KeyF,
-        global::Key::G => Code::KeyG,
-        global::Key::H => Code::KeyH,
-        global::Key::I => Code::KeyI,
-        global::Key::J => Code::KeyJ,
-        global::Key::K => Code::KeyK,
-        global::Key::L => Code::KeyL,
-        global::Key::M => Code::KeyM,
-        global::Key::N => Code::KeyN,
-        global::Key::O => Code::KeyO,
-        global::Key::P => Code::KeyP,
-        global::Key::Q => Code::KeyQ,
-        global::Key::R => Code::KeyR,
-        global::Key::S => Code::KeyS,
-        global::Key::T => Code::KeyT,
-        global::Key::U => Code::KeyU,
-        global::Key::V => Code::KeyV,
-        global::Key::W => Code::KeyW,
-        global::Key::X => Code::KeyX,
-        global::Key::Y => Code::KeyY,
-        global::Key::Z => Code::KeyZ,
-        global::Key::KEY_0 => Code::Digit0,
-        global::Key::KEY_1 => Code::Digit1,
-        global::Key::KEY_2 => Code::Digit2,
-        global::Key::KEY_3 => Code::Digit3,
-        global::Key::KEY_4 => Code::Digit4,
-        global::Key::KEY_5 => Code::Digit5,
-        global::Key::KEY_6 => Code::Digit6,
-        global::Key::KEY_7 => Code::Digit7,
-        global::Key::KEY_8 => Code::Digit8,
-        global::Key::KEY_9 => Code::Digit9,
-        global::Key::SPACE => Code::Space,
-        global::Key::ENTER => Code::Enter,
-        global::Key::KP_ENTER => Code::NumpadEnter,
-        global::Key::TAB => Code::Tab,
-        global::Key::BACKSPACE => Code::Backspace,
-        global::Key::ESCAPE => Code::Escape,
-        global::Key::DELETE => Code::Delete,
-        global::Key::INSERT => Code::Insert,
-        global::Key::HOME => Code::Home,
-        global::Key::END => Code::End,
-        global::Key::PAGEUP => Code::PageUp,
-        global::Key::PAGEDOWN => Code::PageDown,
-        global::Key::LEFT => Code::ArrowLeft,
-        global::Key::RIGHT => Code::ArrowRight,
-        global::Key::UP => Code::ArrowUp,
-        global::Key::DOWN => Code::ArrowDown,
-        global::Key::F1 => Code::F1,
-        global::Key::F2 => Code::F2,
-        global::Key::F3 => Code::F3,
-        global::Key::F4 => Code::F4,
-        global::Key::F5 => Code::F5,
-        global::Key::F6 => Code::F6,
-        global::Key::F7 => Code::F7,
-        global::Key::F8 => Code::F8,
-        global::Key::F9 => Code::F9,
-        global::Key::F10 => Code::F10,
-        global::Key::F11 => Code::F11,
-        global::Key::F12 => Code::F12,
-        global::Key::SHIFT => Code::ShiftLeft,
-        global::Key::CTRL => Code::ControlLeft,
-        global::Key::ALT => Code::AltLeft,
-        global::Key::META => Code::MetaLeft,
-        global::Key::CAPSLOCK => Code::CapsLock,
-        global::Key::NUMLOCK => Code::NumLock,
-        global::Key::SCROLLLOCK => Code::ScrollLock,
-        global::Key::MINUS => Code::Minus,
-        global::Key::EQUAL => Code::Equal,
-        global::Key::BRACKETLEFT => Code::BracketLeft,
-        global::Key::BRACKETRIGHT => Code::BracketRight,
-        global::Key::SEMICOLON => Code::Semicolon,
-        global::Key::APOSTROPHE => Code::Quote,
-        global::Key::COMMA => Code::Comma,
-        global::Key::PERIOD => Code::Period,
-        global::Key::SLASH => Code::Slash,
-        global::Key::BACKSLASH => Code::Backslash,
-        global::Key::QUOTELEFT => Code::Backquote,
-        global::Key::KP_0 => Code::Numpad0,
-        global::Key::KP_1 => Code::Numpad1,
-        global::Key::KP_2 => Code::Numpad2,
-        global::Key::KP_3 => Code::Numpad3,
-        global::Key::KP_4 => Code::Numpad4,
-        global::Key::KP_5 => Code::Numpad5,
-        global::Key::KP_6 => Code::Numpad6,
-        global::Key::KP_7 => Code::Numpad7,
-        global::Key::KP_8 => Code::Numpad8,
-        global::Key::KP_9 => Code::Numpad9,
-        global::Key::KP_ADD => Code::NumpadAdd,
-        global::Key::KP_SUBTRACT => Code::NumpadSubtract,
-        global::Key::KP_MULTIPLY => Code::NumpadMultiply,
-        global::Key::KP_DIVIDE => Code::NumpadDivide,
-        global::Key::KP_PERIOD => Code::NumpadDecimal,
+fn godot_key_to_code(physical: global::Key, location: KeyLocation) -> Code {
+    match (physical, location) {
+        (global::Key::A, _) => Code::KeyA,
+        (global::Key::B, _) => Code::KeyB,
+        (global::Key::C, _) => Code::KeyC,
+        (global::Key::D, _) => Code::KeyD,
+        (global::Key::E, _) => Code::KeyE,
+        (global::Key::F, _) => Code::KeyF,
+        (global::Key::G, _) => Code::KeyG,
+        (global::Key::H, _) => Code::KeyH,
+        (global::Key::I, _) => Code::KeyI,
+        (global::Key::J, _) => Code::KeyJ,
+        (global::Key::K, _) => Code::KeyK,
+        (global::Key::L, _) => Code::KeyL,
+        (global::Key::M, _) => Code::KeyM,
+        (global::Key::N, _) => Code::KeyN,
+        (global::Key::O, _) => Code::KeyO,
+        (global::Key::P, _) => Code::KeyP,
+        (global::Key::Q, _) => Code::KeyQ,
+        (global::Key::R, _) => Code::KeyR,
+        (global::Key::S, _) => Code::KeyS,
+        (global::Key::T, _) => Code::KeyT,
+        (global::Key::U, _) => Code::KeyU,
+        (global::Key::V, _) => Code::KeyV,
+        (global::Key::W, _) => Code::KeyW,
+        (global::Key::X, _) => Code::KeyX,
+        (global::Key::Y, _) => Code::KeyY,
+        (global::Key::Z, _) => Code::KeyZ,
+        (global::Key::KEY_0, _) => Code::Digit0,
+        (global::Key::KEY_1, _) => Code::Digit1,
+        (global::Key::KEY_2, _) => Code::Digit2,
+        (global::Key::KEY_3, _) => Code::Digit3,
+        (global::Key::KEY_4, _) => Code::Digit4,
+        (global::Key::KEY_5, _) => Code::Digit5,
+        (global::Key::KEY_6, _) => Code::Digit6,
+        (global::Key::KEY_7, _) => Code::Digit7,
+        (global::Key::KEY_8, _) => Code::Digit8,
+        (global::Key::KEY_9, _) => Code::Digit9,
+        (global::Key::SPACE, _) => Code::Space,
+        (global::Key::ENTER, _) => Code::Enter,
+        (global::Key::KP_ENTER, _) => Code::NumpadEnter,
+        (global::Key::TAB, _) => Code::Tab,
+        (global::Key::BACKSPACE, _) => Code::Backspace,
+        (global::Key::ESCAPE, _) => Code::Escape,
+        (global::Key::DELETE, _) => Code::Delete,
+        (global::Key::INSERT, _) => Code::Insert,
+        (global::Key::HOME, _) => Code::Home,
+        (global::Key::END, _) => Code::End,
+        (global::Key::PAGEUP, _) => Code::PageUp,
+        (global::Key::PAGEDOWN, _) => Code::PageDown,
+        (global::Key::LEFT, _) => Code::ArrowLeft,
+        (global::Key::RIGHT, _) => Code::ArrowRight,
+        (global::Key::UP, _) => Code::ArrowUp,
+        (global::Key::DOWN, _) => Code::ArrowDown,
+        (global::Key::F1, _) => Code::F1,
+        (global::Key::F2, _) => Code::F2,
+        (global::Key::F3, _) => Code::F3,
+        (global::Key::F4, _) => Code::F4,
+        (global::Key::F5, _) => Code::F5,
+        (global::Key::F6, _) => Code::F6,
+        (global::Key::F7, _) => Code::F7,
+        (global::Key::F8, _) => Code::F8,
+        (global::Key::F9, _) => Code::F9,
+        (global::Key::F10, _) => Code::F10,
+        (global::Key::F11, _) => Code::F11,
+        (global::Key::F12, _) => Code::F12,
+        (global::Key::SHIFT, KeyLocation::LEFT) => Code::ShiftLeft,
+        (global::Key::SHIFT, KeyLocation::RIGHT) => Code::ShiftRight,
+        (global::Key::CTRL, KeyLocation::LEFT) => Code::ControlLeft,
+        (global::Key::CTRL, KeyLocation::RIGHT) => Code::ControlRight,
+        (global::Key::ALT, KeyLocation::LEFT) => Code::AltLeft,
+        (global::Key::ALT, KeyLocation::RIGHT) => Code::AltRight,
+        (global::Key::META, KeyLocation::LEFT) => Code::MetaLeft,
+        (global::Key::META, KeyLocation::RIGHT) => Code::MetaRight,
+        (global::Key::CAPSLOCK, _) => Code::CapsLock,
+        (global::Key::NUMLOCK, _) => Code::NumLock,
+        (global::Key::SCROLLLOCK, _) => Code::ScrollLock,
+        (global::Key::MINUS, _) => Code::Minus,
+        (global::Key::EQUAL, _) => Code::Equal,
+        (global::Key::BRACKETLEFT, _) => Code::BracketLeft,
+        (global::Key::BRACKETRIGHT, _) => Code::BracketRight,
+        (global::Key::SEMICOLON, _) => Code::Semicolon,
+        (global::Key::APOSTROPHE, _) => Code::Quote,
+        (global::Key::COMMA, _) => Code::Comma,
+        (global::Key::PERIOD, _) => Code::Period,
+        (global::Key::SLASH, _) => Code::Slash,
+        (global::Key::BACKSLASH, _) => Code::Backslash,
+        (global::Key::QUOTELEFT, _) => Code::Backquote,
+        (global::Key::KP_0, _) => Code::Numpad0,
+        (global::Key::KP_1, _) => Code::Numpad1,
+        (global::Key::KP_2, _) => Code::Numpad2,
+        (global::Key::KP_3, _) => Code::Numpad3,
+        (global::Key::KP_4, _) => Code::Numpad4,
+        (global::Key::KP_5, _) => Code::Numpad5,
+        (global::Key::KP_6, _) => Code::Numpad6,
+        (global::Key::KP_7, _) => Code::Numpad7,
+        (global::Key::KP_8, _) => Code::Numpad8,
+        (global::Key::KP_9, _) => Code::Numpad9,
+        (global::Key::KP_ADD, _) => Code::NumpadAdd,
+        (global::Key::KP_SUBTRACT, _) => Code::NumpadSubtract,
+        (global::Key::KP_MULTIPLY, _) => Code::NumpadMultiply,
+        (global::Key::KP_DIVIDE, _) => Code::NumpadDivide,
+        (global::Key::KP_PERIOD, _) => Code::NumpadDecimal,
         _ => Code::Unidentified,
+    }
+}
+
+fn godot_modifier_to_modifier(modifier: KeyModifierMask) -> Modifiers {
+    match modifier {
+        KeyModifierMask::ALT => Modifiers::ALT,
+        KeyModifierMask::CTRL => Modifiers::CONTROL,
+        KeyModifierMask::META => Modifiers::META,
+        KeyModifierMask::SHIFT => Modifiers::SHIFT,
+        _ => Modifiers::empty(),
     }
 }
