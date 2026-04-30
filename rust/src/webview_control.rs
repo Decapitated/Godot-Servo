@@ -133,43 +133,47 @@ impl IControl for WebViewControl {
             // Key
             let keycode = key_event.get_keycode();
             let is_unicode = os.is_keycode_unicode(keycode.ord() as u32);
-            let key = if is_unicode {
+            let key = if key_event.is_pressed() && is_unicode {
                 let character = GString::chr(key_event.get_unicode().into());
-                Key::Character(character.to_string())
+                Some(Key::Character(character.to_string()))
+            } else if !is_unicode {
+                Some(godot_key_to_key(keycode))  
             } else {
-                godot_key_to_key(keycode)  
+                None
             };
-            // State
-            let state = match key_event.is_pressed() {
-                true => KeyState::Down,
-                false => KeyState::Up
-            };
-            // Code
-            let code = godot_key_to_code(key_event.get_physical_keycode(), key_event.get_location());
-            // Modifiers
-            let modifiers = key_event.get_modifiers_mask().ord() as i32;
-            let mut servo_modifiers: u32 = 0;
-            for modifier in KeyModifierMask::all_constants() {
-                let modifier = modifier.value();
-                let modifier_ord = modifier.ord() as i32;
-                if (modifiers & modifier_ord) == modifier_ord {
-                    servo_modifiers |= godot_modifier_to_modifier(modifier).bits();
+            if  let Some(key) = key {
+                // State
+                let state = match key_event.is_pressed() {
+                    true => KeyState::Down,
+                    false => KeyState::Up
+                };
+                // Code
+                let code = godot_key_to_code(key_event.get_physical_keycode(), key_event.get_location());
+                // Modifiers
+                let modifiers = key_event.get_modifiers_mask().ord() as i32;
+                let mut servo_modifiers: u32 = 0;
+                for modifier in KeyModifierMask::all_constants() {
+                    let modifier = modifier.value();
+                    let modifier_ord = modifier.ord() as i32;
+                    if (modifiers & modifier_ord) == modifier_ord {
+                        servo_modifiers |= godot_modifier_to_modifier(modifier).bits();
+                    }
                 }
+                let servo_modifiers = Modifiers::from_bits_retain(servo_modifiers);
+                let kb_event = keyboard_types::KeyboardEvent {
+                    state,
+                    key,
+                    code,
+                    location: Location::Standard,
+                    modifiers: servo_modifiers,
+                    repeat: key_event.is_echo(),
+                    is_composing: false,
+                };
+                webview_event = Some(servo::InputEvent::Keyboard(
+                    ServoKeyboardEvent::new(kb_event)
+                ));
+                self.base_mut().accept_event();
             }
-            let servo_modifiers = Modifiers::from_bits_retain(servo_modifiers);
-            let kb_event = keyboard_types::KeyboardEvent {
-                state,
-                key,
-                code,
-                location: Location::Standard,
-                modifiers: servo_modifiers,
-                repeat: key_event.is_echo(),
-                is_composing: false,
-            };
-            webview_event = Some(servo::InputEvent::Keyboard(
-                ServoKeyboardEvent::new(kb_event)
-            ));
-            self.base_mut().accept_event();
         }
 
         if let Some(webview_event) = webview_event {
