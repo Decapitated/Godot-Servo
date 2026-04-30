@@ -127,6 +127,7 @@ impl IControl for WebViewControl {
                     is_compatibility_event_for_touch: false
                 }));
             }
+            self.base_mut().accept_event();
         } else if let Ok(key_event) = event.try_cast::<InputEventKey>() {
             let state = if key_event.is_pressed() { KeyState::Down } else { KeyState::Up };
 
@@ -170,6 +171,7 @@ impl IControl for WebViewControl {
             webview_event = Some(servo::InputEvent::Keyboard(
                 ServoKeyboardEvent::new(kb_event)
             ));
+            self.base_mut().accept_event();
         }
 
         if let Some(webview_event) = webview_event {
